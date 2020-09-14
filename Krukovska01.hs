@@ -39,6 +39,6 @@ hailSeq n = if (n == 0) then [0] else if (n == 1) then [1] else n:hailSeq (hails
 allHailSeq :: [[Int]]
 allHailSeq = [hailSeq x | x <- [1..]]
 
--- Задача 10 -----------------------------------------
+-- Task 10 -----------------------------------------
 firstHailSeq :: Int -> Int
 firstHailSeq l = head [x | x <- [1 ..], (length (hailSeq x) == l)]
