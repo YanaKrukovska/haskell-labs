@@ -15,31 +15,34 @@ concatFr xs ys = foldr (\x y -> x:y) ys xs
 
 -- Task 4 -----------------------------------------
 insert :: [Int] -> Int -> [Int]
-insert xs v = [y | y <- xs, y < v] ++ [v] ++ [y | y <- xs, y >= v]
+insert xs v = [y | y <- xs, y <= v] ++ [v] ++ [y | y <- xs, y > v]
 
 sortInsert :: [Int] -> [Int]
 sortInsert  = foldl insert []
 
 -- Task 5 -----------------------------------------
 findIndices ::(Int -> Bool) -> [Int] -> [Int] 
-findIndices p xs = map fst ( filter (p . snd) ( zip [0..] xs))
+findIndices p xs = map fst(filter(p.snd)(zip [0..] xs))
 
 -- Task 6 -----------------------------------------
 allReverse :: [String] -> [String]
-allReverse = undefined
+allReverse xss = reverse (map reverse xss)
 
 -- Task 7  -----------------------------------------
 noDigits :: String -> String
-noDigits = undefined
+noDigits xs = filter (\x -> not (elem x ['0'..'9'])) xs
 
 -- Task 8 ------------------------------------------
 cntGood :: [Int -> Bool] -> Int -> Int
-cntGood = undefined
+cntGood ps v = length [n | n <- ps, n v]
 
 -- Task 9 ------------------------------------------
+calculateNextRow :: [Integer] -> [Integer]
+calculateNextRow xs = zipWith (+) (0:xs) (xs ++ [0])
+
 trianglePas :: [[Integer]]
-trianglePas = undefined
+trianglePas = iterate calculateNextRow [1]
 
 -- Task 10 -----------------------------------------
 factorialsM :: [Integer]
-factorialsM = undefined
+factorialsM = zipWith (*) [1..] (1:factorialsM)
