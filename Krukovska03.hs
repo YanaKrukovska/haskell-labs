@@ -1,4 +1,4 @@
-﻿{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wall #-}
 module Krukovska03 where
 
 type Algorithm    = [Substitution]
@@ -35,11 +35,11 @@ findAll algo w | null algo = []
 
 -- Task 5 ------------------------------------
 stepA :: Algorithm -> ConfigA -> ConfigA
-stepA  = undefined
+stepA algo (bt, st, word) = if (not bt) then (bt, st, word) else (not pr, st + 1, substitute (xs, ys, pr) i word) where ((xs, ys, pr), i) = head (findAll algo word)
 
 -- Task 6 ------------------------------------
 evalA :: Algorithm -> Int -> String -> Maybe String 
-evalA = undefined
+evalA algo m word = if (m == 0) then Nothing else if bt then evalA algo (m-1) w else Just w where (bt,_,w) = stepA algo (True,0,word)
 
 -- Task 7 ------------------------------------
 compareRegisters :: Command -> Int
@@ -53,18 +53,35 @@ maximReg pr = if (null pr) then 1 else max (compareRegisters(head pr)) (maximReg
 
 -- Task 8 ------------------------------------
 ini :: Program -> [Int] -> [Int] 
-ini = undefined
+ini pr ir = if (length ir < maximReg pr) then ir ++ [0|_ <- [1..(maximReg pr - length ir)]] else take (maximReg pr) ir
 
 upd :: [Int] -> Int -> Int-> [Int]
-upd = undefined 
+upd reg r v = take r reg ++ [v] ++ drop (r + 1) reg
 
 -- Task 9 ------------------------------------
+applyCommand :: Command -> ConfigС -> ConfigС
+applyCommand (Z x) (a, b, reg) = (a + 1, b + 1, upd reg (x - 1) 0) 
+applyCommand (S x) (a, b, reg) = (a + 1, b + 1, upd reg (x - 1) ((reg !! (x - 1)) + 1))
+applyCommand (T x y) (a, b, reg) = (a + 1, b + 1, upd reg (y - 1) (reg !! (x - 1)))
+applyCommand (J x y z) (a, b, reg) = if ((reg !! (x - 1)) == (reg !! (y - 1))) then(z, b + 1, reg) else (a + 1, b + 1, reg)
+
 stepC :: Program -> ConfigС -> ConfigС
-stepC = undefined
+stepC pr (a, b, reg) = applyCommand (pr !! (a - 1)) (a, b, reg)
 
 -- Task 10 ------------------------------------
+getFirstConfigParam :: ConfigС -> Int
+getFirstConfigParam (a, _, _) = a
+
+getThirdConfigParam :: ConfigС -> [Int]
+getThirdConfigParam (_, _, c) = c
+
+calculateEvalC :: Program -> Int -> [Int] -> Int -> Maybe Int
+calculateEvalC _ 0 _ _ = Nothing
+calculateEvalC pr mx ir num | (length pr < num) = Just (head ir)
+               | otherwise = calculateEvalC pr (mx - 1) (getThirdConfigParam (stepC pr (num, mx, ir))) (getFirstConfigParam (stepC pr (num, mx, ir)))
+
 evalC :: Program -> Int -> [Int] -> Maybe Int 
-evalC = undefined
+evalC pr mx ir = calculateEvalC pr (mx + 1) ir 1
 
 ---------------------Test data - Markov algorithm ---------------------------
 clearBeginOne, addEnd, reverse, multiply:: Algorithm 
