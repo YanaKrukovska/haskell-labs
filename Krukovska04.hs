@@ -1,4 +1,4 @@
-﻿{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wall #-}
 module Krukovska04 where
 
 import Data.Char(isDigit, digitToInt)
@@ -30,16 +30,28 @@ a _ = Nothing
 
 -- Task 2 ----------------------------------------
 balance :: String -> Bool
-balance = undefined
+balance input = case b input of 
+    Just input2 -> null input2
+    Nothing -> False
 
 b :: String -> Maybe String 
-b = undefined
+b('(':input) =  case b input of 
+    Just(')':input2) -> b input2
+    _ -> Nothing  
+b('[':input) =  case b input of 
+    Just(']':input2) -> b input2
+    _ -> Nothing
+b('{':input) =  case b input of 
+    Just('}':input2) -> b input2
+    _ -> Nothing  
+b input =  c input
 
 c :: String -> Maybe String 
-c = undefined
-
-e :: String -> Maybe String 
-e = undefined
+c (' ':input) = case c input of
+    Just(' ':input2) -> c input2
+    Just input2 -> b input2
+    _ -> Nothing
+c st = Just st 
 
 -- Task 3 -----------------------------------------
 analyseExpr :: String -> Bool 
@@ -79,17 +91,17 @@ le input = case lf input of
 
 la :: (Int, String) -> Maybe (Int, String) 
 la (value1,(d:input))| elem d "+-*" = case lf input of  
-     Just (value2, input2) -> let value | d == '+' = value1 + value2
-                                        | d == '*' = value1 * value2
-                                        |otherwise = value1 - value2
-                                        in la (value,input2)  
-     Nothing -> Nothing 
+    Just (value2, input2) -> let value | d == '+' = value1 + value2
+                                       | d == '*' = value1 * value2
+                                       |otherwise = value1 - value2
+                                       in la (value,input2)  
+    Nothing -> Nothing 
 la (value1, input) = Just (value1, input)
 
 lf :: String -> Maybe (Int, String) 
 lf ('(':input) = case le input of 
-     Just (value,(')':input2)) -> Just (value, input2) 
-     _ -> Nothing  
+    Just (value,(')':input2)) -> Just (value, input2) 
+    _ -> Nothing  
 
 lf (d:input) | isDigit d = Just (digitToInt d, input) 
 lf _ = Nothing
@@ -102,44 +114,63 @@ evalRigth input = case re input of
    
 re :: String -> Maybe (Int, String) 
 re input = case rf input of 
-     Just (value1, input2) -> ra (value1, input2) 
-     Nothing -> Nothing 
+    Just (value1, input2) -> ra (value1, input2) 
+    Nothing -> Nothing 
 
 ra :: (Int, String) -> Maybe (Int, String) 
 ra (value1,(d:input))| elem d "+-*" = case re input of  
-     Just (value2, input2) -> let value | d == '+' = value1 + value2
-                                        | d == '*' = value1 * value2
-                                        |otherwise = value1 - value2
-                                        in ra (value,input2)  
-     Nothing -> Nothing 
+    Just (value2, input2) -> let value | d == '+' = value1 + value2
+                                       | d == '*' = value1 * value2
+                                       |otherwise = value1 - value2
+                                       in ra (value,input2)  
+    Nothing -> Nothing 
 ra (value1, input) = Just (value1, input)
 
 rf :: String -> Maybe (Int, String) 
 rf ('(':input) = case le input of 
-     Just (value,(')':input2)) -> Just (value, input2) 
-     _ -> Nothing  
+    Just (value,(')':input2)) -> Just (value, input2) 
+    _ -> Nothing  
 
 rf (d:input) | isDigit d = Just (digitToInt d, input) 
 rf _ = Nothing
 
 -- Task 6 -----------------------------------------
 evalPrior :: String -> Maybe Int 
-evalPrior = undefined
+evalPrior input = case pe input of
+    Just (value, input2)| null input2 -> Just value
+    _ -> Nothing
 
-pe :: String -> Maybe String 
-pe = undefined
+pe :: String -> Maybe (Int, String)
+pe input = case pt input of
+    Just (value1, input2) -> pa (value1, input2)
+    Nothing -> Nothing
 
-pa :: (Int,String) -> Maybe (Int,String) 
-pa = undefined
+pa :: (Int,String) -> Maybe (Int, String) 
+pa (value1, d:input)| elem d "+-" = case pt input of
+    Just (value2, input2) -> let value | d == '+' = value1 + value2
+                                       | otherwise = value1 - value2
+                                       in pa (value, input2)
+    Nothing -> Nothing
+pa (value1, input) = Just (value1, input)
 
-pt :: String -> Maybe String 
-pt = undefined
+pt :: String -> Maybe (Int, String) 
+pt input =  case pf input of
+    Just (value1, input2) -> pb (value1, input2)
+    Nothing -> Nothing
 
-pb :: (Int,String) -> Maybe (Int,String) 
-pb = undefined
+pb :: (Int, String) -> Maybe (Int, String) 
+pb (value1, d:input) | d == '*' = case pf input of
+    Just (value2, input2) -> let v = value1 * value2 in pb (v, input2)
+    Nothing -> Nothing
+pb (value1, input) = Just (value1, input)
 
-pf :: String -> Maybe String 
-pf = undefined
+pf :: String -> Maybe (Int, String)
+pf ('(':input) = case pe input of
+    Just (value, ')':input2) -> Just (value, input2)
+    _ -> Nothing
+
+pf (d:input) | isDigit d = Just (digitToInt d, input) 
+pf _ = Nothing
 
 ------------------------------------------------------
 match :: Char -> Maybe String -> Maybe String 
