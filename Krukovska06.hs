@@ -30,12 +30,10 @@ toGraph :: GraphS -> Graph
 toGraph (amount, graph) = [map snd y | y <- [filter (\n -> fst n == x) graph | x <- [0 .. amount]]]
 
 -- Task 4 ------------------------------------
-findShortest :: [[Int]] -> [Int]
-findShortest xs | length xs == 0 = []
-                | otherwise = snd (minimum [(length x, x) | x <- xs])
-
 shortWay :: Graph -> Int -> Int -> [Int]
-shortWay gr a b = findShortest ([reverse (x:xs)| i <- (allWays gr a), (x:xs) <- i, x == b])
+shortWay gr a b | length res == 0 = []
+                | otherwise = head res
+                 where res = shortWays gr a b
 
 -- Task 5 ------------------------------------
 isConnecting :: Graph -> Bool 
@@ -61,8 +59,13 @@ findCenter :: Graph -> [Int]
 findCenter = undefined
 
 -- Task 10 ------------------------------------
+findWays :: Graph -> Int ->Int -> [[Int]]
+findWays gr a b = filter (\x -> b == head x) (concat (allWays gr a))
+
 shortWays :: Graph -> Int -> Int -> [[Int]] 
-shortWays = undefined
+shortWays gr a b | length res == 0 = []
+                 | otherwise = map (reverse) (filter (\x-> (length (last res)) == (length x)) res) 
+                 where res = findWays gr a b
 
 --------------------- Lecture functions -------
 
