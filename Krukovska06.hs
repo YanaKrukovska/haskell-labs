@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 module Krukovska06 where
 
-import Data.List(nub)
+import Data.List(nub, sort)
 
 type GraphS = (Int,[(Int,Int)])            
 type Graph  = [[Int]]
@@ -37,26 +37,26 @@ shortWay gr a b | length res == 0 = []
 
 -- Task 5 ------------------------------------
 isConnecting :: Graph -> Bool 
-isConnecting gr = length gr == (length $ goNodes gr 0)
+isConnecting gr = length gr == (length (goNodes gr 0))
 
 -- Task 6 ------------------------------------
 components :: Graph -> [[Int]] 
-components = undefined
+components gr = nub [sort (goNodes gr x)| x <- nodes gr]
 
 -- Task 7 ------------------------------------
 eccentricity :: Graph -> Int -> Int 
-eccentricity = undefined
+eccentricity gr v = maximum [length(shortWay gr v x) - 1 | x <- [0 .. length gr - 1]]
 
 -- Task 8 ------------------------------------
 findDiameter :: Graph -> Int 
-findDiameter = undefined
+findDiameter gr = maximum (map (eccentricity gr) [0..(length gr - 1)])
 
 findRadius :: Graph -> Int 
-findRadius = undefined
+findRadius gr = minimum (map (eccentricity gr) [0..(length gr - 1)])
 
 -- Task 9 ------------------------------------
 findCenter :: Graph -> [Int] 
-findCenter = undefined
+findCenter gr = [ x | x <- [0 .. length gr - 1], eccentricity gr x == findRadius gr]
 
 -- Task 10 ------------------------------------
 findWays :: Graph -> Int ->Int -> [[Int]]
