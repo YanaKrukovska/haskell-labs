@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -Wall #-}
 module Krukovska08 where
 
+import Data.List(find)
+
 data Recur = Zero | Succ | Sel Int Int 
            | Super Recur [Recur] 
            | Prim Recur Recur 
@@ -9,6 +11,9 @@ data Recur = Zero | Succ | Sel Int Int
 type System = [(String,Recur)]  
 
 -- Task 1 ------------------------------------
+findFunction :: System -> String -> Recur
+findFunction syst name = (snd . head) result where result = filter (( == name). fst) syst
+
 isNumbConst :: System -> Recur -> Bool 
 isNumbConst _ Zero = True
 isNumbConst _ (Sel _ _) = True
@@ -16,9 +21,6 @@ isNumbConst syst (Super Succ f) = isNumbConst syst (head f) && evRank syst (Supe
 isNumbConst syst(Super Zero f) = isNumbConst syst (head f) && evRank syst (Super Succ f) == 1
 isNumbConst syst (Name name) = isNumbConst syst (findFunction syst name)
 isNumbConst _ _ = False
-
-findFunction :: System -> String -> Recur
-findFunction syst name = (snd . head) result where result = filter (( == name). fst) syst
 
 -- Task 2 ------------------------------------
 evRank :: System -> Recur -> Int 
@@ -31,16 +33,64 @@ evRank syst (Mini b _) = (evRank syst b) - 1
 evRank syst (Name functionName) = evRank syst (findFunction syst functionName)
 
 -- Task 3 ------------------------------------
+getAllNames :: Recur -> [String]
+getAllNames (Name name) = [name]
+getAllNames (Super b al) = (getAllNames b) ++ (concatMap (getAllNames)al)
+getAllNames (Prim i st) = (getAllNames i) ++ (getAllNames st)
+getAllNames (Mini b _) = getAllNames b
+getAllNames _ = []
+
+isNamesHelper :: System -> [String] -> Bool
+isNamesHelper (s:syst) names | and (map (\x -> elem x names)(getAllNames (snd s))) = isNamesHelper syst (names ++ [(fst s)])
+                             | otherwise = False
+isNamesHelper [] _ = True
+
 isNames :: System -> Bool 
-isNames = undefined
+isNames syst = isNamesHelper syst []
 
 -- Task 4 ------------------------------------
+isCorrect :: System -> Recur -> Bool
+isCorrect syst f | length syst == 0 = null (getAllNames f)
+                 | otherwise = null (filter (\x -> notElem x (map fst syst)) (getAllNames f))
+
+isUsedRight :: System -> Recur -> Bool
+isUsedRight syst f | length syst == 0 = isCorrect [] f
+                   | isCorrect syst f = isUsedRight (init syst) (snd $ last syst)
+                   | otherwise = False
+
 isRecur :: System -> Recur -> Bool
-isRecur = undefined
+isRecur syst (Name name) = elem name (map fst syst)
+isRecur syst f = (elem f (map snd syst)) || isUsedRight syst f
 
 -- Task 5 ------------------------------------
-eval :: System -> Recur -> [Int] -> Int 
-eval = undefined
+getFuctionByName :: System -> String -> Maybe (String,Recur)
+getFuctionByName syst name = find (\x -> name == (fst x)) syst
+
+eval :: System -> Recur -> [Int] -> Int
+eval _ (Zero) _ = 0
+eval _ (Succ) v = (head v) + 1
+eval _ (Sel _ k) v = v !! (k - 1)
+eval syst(Super f fs) v = eval syst f (map (\x -> eval syst x v) fs)
+eval syst (Name str) xs = case findRecurion syst str of 
+                           Just recursion -> eval syst recursion xs  
+                           Nothing -> 0
+eval syst (Prim r1 r2) xs = last (fst (until cond1 (stepEval syst r2) (init xs ++ [0] ++ [eval syst r1 (take (evRank syst r1) xs)], last xs)))
+eval syst minRec@(Mini _ _) xs = case evalPart syst minRec xs of 
+    Just res -> res
+    Nothing -> 0
+cond1::([Int],Int)->Bool
+cond1 (xs,i)= i <= (xs !! (length xs -2))
+
+stepEval::System -> Recur -> ([Int],Int) -> ([Int],Int)
+stepEval syst r1 (xs,i)= let without1 = init xs
+                             counter = (last without1)
+                             without2 = init without1
+                         in (without2 ++ [counter+1]++[eval syst r1 (without2++[counter]++[last xs])],i)
+
+findRecurion :: System -> String -> Maybe Recur
+findRecurion (x:xs) str | fst x == str = Just (snd x)
+                        | otherwise = findRecurion xs str 
+findRecurion [] _ = Nothing
 
 -- Task 6 ------------------------------------
 evalPart :: System -> Recur -> [Int] -> Maybe Int 
