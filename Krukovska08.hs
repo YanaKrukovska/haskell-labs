@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -Wall #-}
 module Krukovska08 where
 
-import Data.List(find)
+import Data.List()
+import Text.ParserCombinators.Parsec
 
 data Recur = Zero | Succ | Sel Int Int 
            | Super Recur [Recur] 
@@ -63,8 +64,16 @@ isRecur syst (Name name) = elem name (map fst syst)
 isRecur syst f = (elem f (map snd syst)) || isUsedRight syst f
 
 -- Task 5 ------------------------------------
-getFuctionByName :: System -> String -> Maybe (String,Recur)
-getFuctionByName syst name = find (\x -> name == (fst x)) syst
+findRecurion :: System -> String -> Maybe Recur
+findRecurion (x:xs) str | fst x == str = Just (snd x)
+                        | otherwise = findRecurion xs str 
+findRecurion [] _ = Nothing
+
+evaluateNext::System -> Recur -> ([Int],Int) -> ([Int],Int)
+evaluateNext syst r (xs,i) = let firstOut = init xs
+                                 counter = (last firstOut)
+                                 secondOut = init firstOut
+                             in (secondOut ++ [counter + 1] ++ [eval syst r (secondOut ++ [counter] ++ [last xs])], i)
 
 eval :: System -> Recur -> [Int] -> Int
 eval _ (Zero) _ = 0
@@ -74,32 +83,24 @@ eval syst(Super f fs) v = eval syst f (map (\x -> eval syst x v) fs)
 eval syst (Name str) xs = case findRecurion syst str of 
                            Just recursion -> eval syst recursion xs  
                            Nothing -> 0
-eval syst (Prim r1 r2) xs = last (fst (until cond1 (stepEval syst r2) (init xs ++ [0] ++ [eval syst r1 (take (evRank syst r1) xs)], last xs)))
+eval syst (Prim recur1 recur2) xs = last (fst (until compareCondition (evaluateNext syst recur2) (init xs ++ [0] ++ [eval syst recur1 (take (evRank syst recur1) xs)], last xs)))
+ where compareCondition::([Int], Int) -> Bool
+       compareCondition (x, i) = i <= (x !! (length x - 2))
 eval syst minRec@(Mini _ _) xs = case evalPart syst minRec xs of 
-    Just res -> res
+    Just result -> result
     Nothing -> 0
-cond1::([Int],Int)->Bool
-cond1 (xs,i)= i <= (xs !! (length xs -2))
-
-stepEval::System -> Recur -> ([Int],Int) -> ([Int],Int)
-stepEval syst r1 (xs,i)= let without1 = init xs
-                             counter = (last without1)
-                             without2 = init without1
-                         in (without2 ++ [counter+1]++[eval syst r1 (without2++[counter]++[last xs])],i)
-
-findRecurion :: System -> String -> Maybe Recur
-findRecurion (x:xs) str | fst x == str = Just (snd x)
-                        | otherwise = findRecurion xs str 
-findRecurion [] _ = Nothing
 
 -- Task 6 ------------------------------------
-evalPart :: System -> Recur -> [Int] -> Maybe Int 
-evalPart = undefined
+evalPart :: System -> Recur -> [Int] -> Maybe Int
+evalPart syst (Name name) vl = evalPart syst (findFunction syst name) vl
+evalPart syst (Mini g t) vl | null result = Nothing
+                            | otherwise = Just (head result)
+                          where result = filter (\x -> (eval syst g (vl ++ [x])) == 0)[0..t]
+evalPart syst f vl = Just (eval syst f vl)
 
 -- Task 7 ------------------------------------
 parseRec :: String -> Maybe System 
 parseRec = undefined
-
 
 --------------------- Test Data --------
 syst1, syst2 :: System 
