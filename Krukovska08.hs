@@ -98,9 +98,90 @@ evalPart syst (Mini g t) vl | null result = Nothing
                           where result = filter (\x -> (eval syst g (vl ++ [x])) == 0)[0..t]
 evalPart syst f vl = Just (eval syst f vl)
 
--- Task 7 ------------------------------------
-parseRec :: String -> Maybe System 
-parseRec = undefined
+-- Task 7 ------------------------------------                                  
+integer :: Parser Int
+integer = do ds <- many1 digit
+             return $ read ds
+
+iden :: Parser Recur
+iden = do l <- letter
+          ss <- many (digit <|> letter)
+          return (Name (l:ss))
+         
+idenName :: Parser String
+idenName = do l <- letter
+              ss <- many (digit <|> letter)
+              return (l:ss)
+
+recur :: Parser Recur
+recur = do r <- (try base) <|> (try super) <|> (try prim) <|> (try mini)
+           return r
+  
+base :: Parser Recur
+base = do b <- (try zero) <|> (try suc) <|> (try sel) <|> iden
+          return b
+ 
+zero :: Parser Recur
+zero = do _ <- string "z1"
+          return Zero
+
+suc ::Parser Recur
+suc = do _ <- string "a1"
+         return Succ
+
+sel :: Parser Recur
+sel = do _ <- char 's'
+         n <- digit
+         k <- digit
+         return (Sel (read [n]) (read [k]))
+
+super :: Parser Recur
+super = do _ <- char '('
+           r1 <- recur
+           _ <- char ':'
+           r2 <- recur
+           r3 <- many (repeatedSuper)
+           _ <- char ')'
+           return (Super r1 (r2:r3))
+
+repeatedSuper :: Parser Recur
+repeatedSuper = do _ <- char ','
+                   r <- recur
+                   return r
+
+prim :: Parser Recur
+prim = do _ <- char '['
+          r1 <- recur
+          _ <- char ','
+          r2 <- recur
+          _ <- char ']'
+          return (Prim r1 r2)
+
+mini :: Parser Recur
+mini = do _ <- char '{'
+          r <- recur
+          _ <- char ','
+          i <- integer
+          _ <- char '}'
+          return (Mini r i)
+
+system :: Parser System
+system = do s <- many systemHelper
+            eof
+            return s;
+            
+systemHelper :: Parser (String, Recur)
+systemHelper = do i <- idenName
+                  _ <- char '='
+                  r <- recur
+                  _ <- char ';'
+                  return (i,r)
+
+parseRec :: String -> Maybe System
+parseRec str = let filteredStr = filter (/= '\t')(filter (/= ' ') (filter (/= '\n') str))
+                   in case parse system "" filteredStr of 
+                           Left _ -> Nothing
+                           Right r -> Just r
 
 --------------------- Test Data --------
 syst1, syst2 :: System 
