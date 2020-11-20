@@ -1,7 +1,9 @@
 {-# OPTIONS_GHC -Wall #-}
 module Krukovska10 where
 
--- розглядаємо лише цілі дані: скаляри  і масиви  
+import Data.List
+
+-- only work with scalars and arrays
 --------------------------------------------------------------------
 type Id    = String
 data Value = I Int | A [(Int, Int)]  deriving (Eq, Show)
@@ -25,11 +27,11 @@ data Stmt = Assign Id Exp
 data VarDef  =  Arr Id | Int Id deriving (Eq, Show)
 
 type FunDef  =  (Id, ([VarDef], Exp))
--- функції повертають лише цілі скалярні дані, не використовують глобальні дані (чисті!!)
+-- functions return only scalars, don't use global data
 type ProcDef = (Id, ([VarDef], Stmt))
 type Program = ([VarDef], [FunDef], [ProcDef])
 
-type StateP  = [(Id, Value)]  -- стек даних
+type StateP  = [(Id, Value)]  -- data stack
 
 data Type    = At | It  deriving (Eq, Show)
 type FunEnv  = [(Id,[Type])]
@@ -85,48 +87,140 @@ evArgs :: [Exp] -> [FunDef] -> StateP -> [Value]
 evArgs ex dfx st = map (\x -> evExp x dfx st) ex
 
 -- Task 5 ------------------------------------
+updateState :: Id -> [Exp] -> [FunDef] -> [ProcDef] -> StateP -> StateP
+updateState i ex dfx dpx st = let (vs, _) = lookUp i dpx in (zip (map getId vs) (map (\e -> evExp e dfx st) ex)) ++ st
+
+addLocalVariables :: [VarDef] -> StateP -> StateP
+addLocalVariables [] st = st
+addLocalVariables (v:vs) st = addLocalVariables vs ((initv v):st)
+
+evBlock :: [Stmt] -> [FunDef]->[ProcDef]->StateP->StateP
+evBlock [] _ _ st = st
+evBlock (s:ts) dfx dpx st = evBlock ts dfx dpx (evStmt s dfx dpx st) 
+
+deleteLocal :: [VarDef] -> StateP -> StateP
+deleteLocal [] st = st
+deleteLocal [Arr v] st = deleteVars v st
+deleteLocal [Int v] st = deleteVars v st
+deleteLocal ((Arr v):vs) st = deleteLocal vs (deleteVars v st)
+deleteLocal ((Int v):vs) st = deleteLocal vs (deleteVars v st)
+
+deleteVars ::Id -> StateP -> StateP
+deleteVars _ [] = []
+deleteVars i ((d, s):st) | i == d = st
+                         | otherwise = (d,s):(deleteVars i st)
+
 evStmt :: Stmt -> [FunDef] -> [ProcDef] -> StateP -> StateP
-evStmt = undefined
+evStmt (Assign i ex) dfx _ st = updateValue i (evExp ex dfx st) st
+evStmt (AssignA i ex1 ex2) dfx _ st = updateValue i (updateArray (lookUp i st) (evExp ex1 dfx st)(evExp ex2 dfx st)) st
+evStmt (If ex stmt1 stmt2) dfx dpx st = let I i = evExp ex dfx st in evStmt (if i /= 0 then stmt1 else stmt2) dfx dpx st
+evStmt (While ex stmt) dfx dpx st = let cond stN = let I i = evExp ex dfx stN in i == 0 
+                                        step stN = evStmt stmt dfx dpx stN 
+                                    in until cond step st
+evStmt (Call i ex) dfx dpx st = let (vs, stmt) = lookUp i dpx 
+                                    res = evStmt stmt dfx dpx (updateState i ex dfx dpx st)
+                                 in deleteLocal vs res
+evStmt (Block vd stmt) dfx dpx st = deleteLocal vd (evBlock stmt dfx dpx (addLocalVariables vd st))
 
 -- Task 6 ------------------------------------
 iswfExp :: Exp -> VarEnv -> FunEnv -> Maybe Type
-iswfExp = undefined
+iswfExp (Const _) _ _ = Just It
+iswfExp (Var v) ve _ | isElem v ve = Just ([b | (a, b) <- ve, a == v] !! 0)
+                     | otherwise = Nothing
+                     where isElem :: Id -> VarEnv -> Bool
+                           isElem e (vv:vs) | fst vv == e = True
+                                            | otherwise = isElem e vs
+                           isElem _ [] = False
+iswfExp (OpApp op x1 x2) ve fe = case (iswfExp x1 ve fe) of
+         Just a -> case (iswfExp x2 ve fe) of
+              Just b -> iswfOp op [a, b]
+              _ -> Nothing
+         _ -> Nothing
+iswfExp (Cond x1 x2 x3) ve fe = case (iswfExp x1 ve fe) of
+    Just a -> case (iswfExp x2 ve fe) of
+        Just b -> case (iswfExp x3 ve fe) of
+            Just c -> iswfCond [a, b, c]
+            _ -> Nothing
+        _ -> Nothing
+    _ -> Nothing
+iswfExp (FunApp i ex) ve fe | f == exs = Just It 
+                            | otherwise = Nothing
+                             where f = map Just (lookUp i fe)
+                                   exs = map (\x -> iswfExp x ve fe) ex
 
 -- Task 7 ------------------------------------
+getType :: VarDef -> (Id, Type)
+getType (Arr a) = (a, At)
+getType (Int i) = (i, It)
+
 iswfStmt :: Stmt -> VarEnv -> FunEnv -> ProcEnv -> Bool
-iswfStmt = undefined
+iswfStmt (Assign i ex) ve fe _ = lookup i ve == iswfExp ex ve fe && lookup i ve == Just It
+iswfStmt (AssignA i ex1 ex2) ve fe _ = let Just t1 = lookup i ve
+                                           Just t2 = iswfExp ex1 ve fe
+                                           Just t3 = iswfExp ex2 ve fe
+                                        in iswfAssignA [t1, t2, t3]
+iswfStmt (If ex stmt1 stmt2) ve fe pe = Just It == iswfExp ex ve fe && iswfStmt stmt1 ve fe pe && iswfStmt stmt2 ve fe pe
+iswfStmt (While ex stmt) ve fe pe = Just It == iswfExp ex ve fe && iswfStmt stmt ve fe pe
+iswfStmt (Call i ex) ve fe pe = map (\x -> iswfExp x ve fe) ex == (map Just (lookUp i pe))
+iswfStmt (Block vd stmt) ve fe pe = all (\s -> iswfStmt s (map getType vd ++ ve) fe pe) stmt
 
 -- Task 8 ------------------------------------
-iswfFunDef :: FunDef -> FunEnv -> Bool
-iswfFunDef = undefined 
+getTypeOnly :: VarDef -> Type
+getTypeOnly (Arr _) = At
+getTypeOnly (Int _) = It
 
+iswfFunDef :: FunDef -> FunEnv -> Bool
+iswfFunDef (i, (vd, ex)) fe = elem (i, map getTypeOnly vd) fe && iswfExp ex (map getType vd ) fe /= Nothing
+                      
 iswfProcDef :: ProcDef -> VarEnv -> FunEnv -> ProcEnv -> Bool
-iswfProcDef = undefined
+iswfProcDef (i, (procTypes, stmt)) ve fe pe = let updatedTypes = map getTypeOnly procTypes
+                                                  updatedVe = map getType procTypes ++ ve
+                                                  updatedPe = updateValue i updatedTypes pe 
+                                              in elem (i, updatedTypes) updatedPe && iswfStmt stmt updatedVe fe updatedPe
 
 -- Task 9 ------------------------------------
-iswfProgram :: Program -> Bool
-iswfProgram = undefined 
+checkFuns :: [FunDef] -> [(Id,[Type])] -> Bool
+checkFuns fd fs = and (map (\f -> iswfFunDef f fs) fd)
 
+containsMain :: [(Id,[Type])] -> Bool
+containsMain pr = elem ("main", []) pr
+
+checkIds :: [Id] -> Bool
+checkIds ids = length ids == length (nub ids)
+
+createFunEnv :: FunDef -> (Id,[Type])
+createFunEnv  (i, (fd, _)) = (i, map getTypeOnly fd)
+
+createProcEnv :: ProcDef -> (Id,[Type])
+createProcEnv  (i, (vd, _)) = (i, map getTypeOnly vd)
+
+iswfProgram :: Program -> Bool
+iswfProgram (vd, fd, pd) = checkFuns fd fs && checkProc && containsMain pr && checkIds ids
+                           where vs = map getType vd 
+                                 fs = map createFunEnv fd
+                                 pr = map createProcEnv pd
+                                 checkProc = and (map (\p -> iswfProcDef p vs fs pr) pd)
+                                 ids = (map fst vs) ++ (map fst fs) ++ (map fst pr)
 
 --- Helper functions -----------------------------
 lookUp :: Eq a => a -> [(a,b)] -> b
--- Precondition: Пара з ключом a є в списку пар abx
+-- Precondition: par with key a is in list of pairs abx
 lookUp a abx = maybe (error "lookUp") id (lookup a abx) 
 
--- формує початкове значення змінної
+-- forms initial value of variable
 initv :: VarDef -> (Id, Value)
 initv (Arr v) = (v, A [])
 initv (Int v) = (v, I 0) 
 
--- Реалізація виконання програми 
+-- Implementation of program 
 evProgram :: Program -> StateP 
 evProgram (dvx, dfx, dpx) = 
    let sb = map initv dvx 
        ( _, s) = lookUp "main" dpx      
    in  evStmt s dfx dpx sb   
 
---  iswfOp o ts - перевіряє коректність типів операндів ts 
---     бінарної операції o і формує тип результату Just t або Nothing  
+--  iswfOp o ts - checks if types of operands of ts 
+--     of binary operation o and forms result Just t or Nothing  
 iswfOp :: Op -> [Type] -> Maybe Type 
 iswfOp Add   [It,It] = Just It
 iswfOp Minus [It,It] = Just It
@@ -136,15 +230,15 @@ iswfOp Equal [It,It] = Just It
 iswfOp Index [At,It] = Just It
 iswfOp _      _      = Nothing
 
---  iswfCond ts - перевіряє коректність  типів операндів ts
---     умовного виразу і формує тип результату Just t або Nothing 
+--  iswfCond ts - checks if types of operands of ts
+--     of "if" and forms result Just t або Nothing 
 iswfCond :: [Type] -> Maybe Type 
 iswfCond [It,It,It] = Just It
 iswfCond [It,At,At] = Just At
 iswfCond _          = Nothing 
 
--- iswfAssignA ts перевіряє коректність  типів операндів ts
---   операції присвоювання значення елементу масива 
+-- iswfAssignA ts - checks if types of operands of ts
+--   for assigning operation
 iswfAssignA :: [Type] -> Bool
 iswfAssignA [At,It,It] = True 
 iswfAssignA _          = False  
